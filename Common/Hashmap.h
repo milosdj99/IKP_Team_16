@@ -3,15 +3,15 @@
 
 #define SIZE 50
 
-typedef struct Data_m {
-	int key;
-	int value;
-} Data;
+
+int* NewHashArray();
 
 int GetHashValue(int key);
-bool HashInsert(int key, int value, Data** HashArray);
-void HashUpdate(int key, int value, Data** HashArray);
 
-Data* HashSearch(int key, Data** HashArray);
+bool HashInsert(int key, int value, int* HashArray);
 
-bool HashDelete(int key, Data** HashArray);
+void HashUpdate(int key, int value, int* HashArray);
+
+int HashSearch(int key, int* HashArray);
+
+bool HashDelete(int key, int* HashArray);

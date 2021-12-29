@@ -2,60 +2,49 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
-
+#include <malloc.h>
+#include "pch.h"
 #include "Hashmap.h"
 
 
 
-Data* NewHashArray() {
+int* NewHashArray() {
 
-	Data* array = (Data*)calloc(50, sizeof(Data));
+	int* array = (int*)malloc(100* sizeof(int));
 
 	return array;
 }
 
 int GetHashValue(int key) {
 
-	return key % SIZE;
+	return key % 100;
 
 }
 
-bool HashInsert(int key, int value, Data** HashArray) {
-
-	
-	Data* new_data = (Data*)malloc(sizeof(Data));
-	new_data->key = key;
-	new_data->value = value;
+bool HashInsert(int key, int value, int* HashArray) {
 
 	int hash = GetHashValue(key);
 
-	if (HashArray[hash] != NULL) {
+	if (HashArray[hash] != 0) {
 		return false;
 
 	}
 	else {
-		HashArray[hash] = new_data;
+		HashArray[hash] = value;
 		return true;
 	}
 
 }
 
-void HashUpdate(int key, int value, Data** HashArray) {
-
-
-	Data* new_data = (Data*)malloc(sizeof(Data));
-	new_data->key = key;
-	new_data->value = value;
+void HashUpdate(int key, int value, int* HashArray) {
 
 	int hash = GetHashValue(key);
-
 	
-	HashArray[hash] = new_data;
+	HashArray[hash] = value;
 		
-
 }
 
-Data* HashSearch(int key, Data** HashArray) {
+int HashSearch(int key, int* HashArray) {
 
 	int hash = GetHashValue(key);
 
@@ -63,9 +52,9 @@ Data* HashSearch(int key, Data** HashArray) {
 }
 
 
-bool HashDelete(int key, Data** HashArray) {
+bool HashDelete(int key, int* HashArray) {
 
-	if (HashSearch(key, HashArray) == NULL) {
+	if (HashSearch(key, HashArray) == 0) {
 
 		return false;
 	}
@@ -73,7 +62,9 @@ bool HashDelete(int key, Data** HashArray) {
 
 		int hash = GetHashValue(key);
 
-		HashArray[hash] = NULL;
+		HashArray[hash] = 0;
+
+		return true;
 	}
 }
 

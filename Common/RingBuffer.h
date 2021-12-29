@@ -3,25 +3,23 @@
 
 #define RING_SIZE 50
 
-enum Operation_type { ADD, UPDATE, DELETE };
+typedef struct Data_for_send_m {
 
-typedef struct Operation_m {
+	int key;
+	int value;
 
-	Operation_type type;
-	Data data;
-
-} Operation;
+} Data_for_send;
 
 typedef struct RingBuffer_m {
 
 	unsigned int tail;
 	unsigned int head;
-	Operation data[RING_SIZE];
+	Data_for_send data[RING_SIZE];
 
 } RingBuffer;
 
 
-Operation BufferGet(RingBuffer* buffer);
+Data_for_send BufferGet(RingBuffer* buffer);
 
 
-void BufferPut(RingBuffer* buffer, Operation new_operation);
+void BufferPut(RingBuffer* buffer, Data_for_send* new_data);
