@@ -81,35 +81,38 @@ int main()
 
     while (true) {
         do {
-            printf("1.Manuelni unos");
-            printf("2.Automatski unos");
-            printf("3.Ispis podataka");
+            printf("\n1.Manuelni unos\n");
+            printf("2.Automatski unos\n");
+            printf("3.Ispis podataka\n");
+            printf("4. Prekid konekcije\n");
 
             scanf_s("%d", &unos);
 
-        } while (unos != 1 && unos != 2 && unos != 3);
+        } while (unos != 1 && unos != 2 && unos != 3 && unos !=4);
 
 
 
-        int kljuc, vrednost;
+        int kljuc = 0;
+        int vrednost;
 
         if (unos == 1) {
-            printf("Unesite kljuc: (pritisnite x za povratak)");
-
-            if (vrednost == 'x') {
-                continue;
-            }
+            printf("Unesite kljuc: (pritisnite 0 za povratak)\n");
 
             scanf_s("%d", &kljuc);
 
-            printf("Unesite vrednost:");
+            if (kljuc == 0) {
+                continue;
+            }
+
+            
+
+            printf("Unesite vrednost:\n");
 
             scanf_s("%d", &vrednost);
             
-            if (!HashInsert(kljuc, vrednost, dictionary)) {
+            HashInsertOrUpdate(kljuc, vrednost, dictionary);
 
-                HashUpdate(kljuc, vrednost, dictionary);
-            } 
+             
 
             Data_for_send* data = (Data_for_send*)malloc(sizeof(Data_for_send));
 
@@ -133,11 +136,9 @@ int main()
                 kljuc = rand();
                 vrednost = rand();
 
-                if (!HashInsert(kljuc, vrednost, dictionary)) {
+                HashInsertOrUpdate(kljuc, vrednost, dictionary);
 
-                    HashUpdate(kljuc, vrednost, dictionary);
-                }
-
+                
                 Data_for_send* data = (Data_for_send*)malloc(sizeof(Data_for_send));
 
                 data->key = kljuc;
@@ -155,6 +156,9 @@ int main()
         else if (unos == 3) {
             
             Ispisi_bazu(dictionary);
+        }
+        else {
+            break;
         }
     }
 
@@ -208,9 +212,9 @@ int main()
 
     void Ispisi_bazu(int* dictionary) {
 
-        int count = sizeof(dictionary) / sizeof(int);
+        //int count = sizeof(*dictionary) / sizeof(int);
 
-        for (int i = 0; i < count; i++) {
-            printf("%d", dictionary[i]);
+        for (int i = 0; i < 100; i++) {
+            printf("%d || ", dictionary[i]);
         }
     }

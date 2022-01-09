@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "conio.h"
 #include <iostream>
-#include "/4 GOD/SEMESTAR 1/2_IKP/PROJEKAT/IKP_Tim_16/IKP_Team_16/Common/Hashmap.cpp"
+#include "/4 GOD/SEMESTAR 1/2_IKP/PROJEKAT/IKP_Tim_16/IKP_Team_16/Common/HashmapData.cpp"
 #include "/4 GOD/SEMESTAR 1/2_IKP/PROJEKAT/IKP_Tim_16/IKP_Team_16/Common/RingBuffer.cpp"
 
 #pragma comment (lib, "Ws2_32.lib")
@@ -16,10 +16,15 @@
 
 #pragma pack(1)
 
+typedef struct Process_m {
+	int id;
+	SOCKET socket;
+
+} Process;
 
 #define SERVER_PORT 27016
 #define BUFFER_SIZE 256
-#define MAX_CLIENTS 3
+
 
 DWORD WINAPI Prihvat(LPVOID lpParam);
 DWORD WINAPI Prijava(LPVOID lpParam);
@@ -32,7 +37,7 @@ RingBuffer buffer;
 int main()
 {
 	
-
+	Process* Processes = (Process*)malloc(sizeof(Process));
 	// WSADATA data structure that is to receive details of the Windows Sockets implementation
 	WSADATA wsaData;
 
@@ -52,7 +57,8 @@ int main()
 
 	int liI = getchar();
 	CloseHandle(hPrijava);
-	CloseHandle(hPrihvat);
+	CloseHandle(hPrijava);
+	
 
 	for (int i = 0; i < lastIndex; i++)
 	{
@@ -73,7 +79,7 @@ DWORD WINAPI Prijava(LPVOID lpParam)
 {
 	SOCKET listenSocket = INVALID_SOCKET;
 
-
+	bool imaKlijent = false;
 
 	// Initialize serverAddress structure used by bind
 	sockaddr_in serverAddress;
@@ -134,7 +140,7 @@ DWORD WINAPI Prijava(LPVOID lpParam)
 
 	printf("Server socket is set to listening mode. Waiting for new connection requests.\n");
 
-	int lastIndex = 0;
+	lastIndex = 0;
 
 
 	fd_set readfds;
@@ -199,11 +205,14 @@ DWORD WINAPI Prijava(LPVOID lpParam)
 					continue;
 				}
 				lastIndex++;
+				printf("\nNew client request accepted");
 				//printf("New client request accepted (%d). Client address: %s : %d\n", lastIndex, inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
-
+				
+				
 			}
 		}
 	}
+	
 
 	return 0;
 }
@@ -218,80 +227,90 @@ DWORD WINAPI Prihvat(LPVOID lpParam)
 	timeVal.tv_sec = 1;
 	timeVal.tv_usec = 0;
 
+	SOCKET dummy = socket(AF_INET,      // IPv4 address family
+		SOCK_STREAM,  // Stream socket
+		IPPROTO_TCP); // TCP protocol
+
+
 	char dataBuffer[BUFFER_SIZE];
 
-	while (true) {
+	if (sizeof(clientSockets) / sizeof(SOCKET) > 0) {
+		while (true) {
 
-		FD_ZERO(&readfds);
+			FD_ZERO(&readfds);
 
-		for (int i = 0; i < lastIndex; i++)
-		{
-			FD_SET(clientSockets[i], &readfds);
-		}
-
-		int selectResult = select(0, &readfds, NULL, NULL, &timeVal);
-
-		if (selectResult == SOCKET_ERROR)
-		{
-			printf("Select failed with error: %d\n", WSAGetLastError());
 			
-			WSACleanup();
-			return 1;
-		}
-		else if (selectResult == 0) // timeout expired
-		{		
-			continue;
-		}
-		else
-		{
+			FD_SET(dummy, &readfds);
 
-			// Check if new message is received from connected clients
 			for (int i = 0; i < lastIndex; i++)
 			{
-				// Check if new message is received from client on position "i"
-				if (FD_ISSET(clientSockets[i], &readfds))
+				FD_SET(clientSockets[i], &readfds);
+			}
+
+			int selectResult = select(1, &readfds, NULL, NULL, &timeVal);
+
+			if (selectResult == SOCKET_ERROR)
+			{
+				printf("Select failed with error: %d\n", WSAGetLastError());
+
+				WSACleanup();
+				return 1;
+			}
+			else if (selectResult == 0) // timeout expired
+			{
+				continue;
+			}
+			else
+			{
+
+				// Check if new message is received from connected clients
+				for (int i = 0; i < lastIndex; i++)
 				{
-					int iResult = recv(clientSockets[i], dataBuffer, BUFFER_SIZE, 0);
-
-					if (iResult > 0)
+					// Check if new message is received from client on position "i"
+					if (FD_ISSET(clientSockets[i], &readfds))
 					{
-						dataBuffer[iResult] = '\0';
-						printf("Message received from client (%d):\n", i + 1);
+						int iResult = recv(clientSockets[i], dataBuffer, BUFFER_SIZE, 0);
 
-						Data_for_send data = *(Data_for_send*)dataBuffer;
-						
-						BufferPut(&buffer, &data);
-
-					}
-					else if (iResult == 0)
-					{
-						// connection was closed gracefully
-						printf("Connection with client (%d) closed.\n", i + 1);
-						closesocket(clientSockets[i]);
-
-						// sort array and clean last place
-						for (int j = i; j < lastIndex - 1; j++)
+						if (iResult > 0)
 						{
-							clientSockets[j] = clientSockets[j + 1];
+							dataBuffer[iResult] = '\0';
+							printf("\nMessage received from client (%d):\n", i + 1);
+
+							Data_for_send data = *(Data_for_send*)dataBuffer;
+
+							BufferPut(&buffer, &data);
+
 						}
-						clientSockets[lastIndex - 1] = 0;
-
-						lastIndex--;
-					}
-					else
-					{
-						// there was an error during recv
-						printf("recv failed with error: %d\n", WSAGetLastError());
-						closesocket(clientSockets[i]);
-
-						// sort array and clean last place
-						for (int j = i; j < lastIndex - 1; j++)
+						else if (iResult == 0)
 						{
-							clientSockets[j] = clientSockets[j + 1];
-						}
-						clientSockets[lastIndex - 1] = 0;
+							// connection was closed gracefully
+							printf("\nConnection with client (%d) closed.\n", i + 1);
+							closesocket(clientSockets[i]);
 
-						lastIndex--;
+							// sort array and clean last place
+							for (int j = i; j < lastIndex - 1; j++)
+							{
+								clientSockets[j] = clientSockets[j + 1];
+							}
+							clientSockets[lastIndex - 1] = 0;
+
+							lastIndex--;
+						}
+						else
+						{
+							// there was an error during recv
+							printf("\nRecv failed with error: %d\n", WSAGetLastError());
+							closesocket(clientSockets[i]);
+
+							// sort array and clean last place
+							for (int j = i; j < lastIndex - 1; j++)
+							{
+								clientSockets[j] = clientSockets[j + 1];
+							}
+							clientSockets[lastIndex - 1] = 0;
+
+							lastIndex--;
+						}
 					}
 				}
 			}

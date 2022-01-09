@@ -6,11 +6,9 @@
 
 int* NewHashArray();
 
-int GetHashValue(int key);
+int GetHashValue(int key, int size);
 
-bool HashInsert(int key, int value, int* HashArray);
-
-void HashUpdate(int key, int value, int* HashArray);
+void HashInsertOrUpdate(int key, int value, int* HashArray);
 
 int HashSearch(int key, int* HashArray);
 
