@@ -1,5 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -7,7 +9,7 @@
 #include <stdio.h>
 #include "conio.h"
 #include <iostream>
-#include "/4 GOD/SEMESTAR 1/2_IKP/PROJEKAT/IKP_Tim_16/IKP_Team_16/Common/HashmapData.cpp"
+//#include "/4 GOD/SEMESTAR 1/2_IKP/PROJEKAT/IKP_Tim_16/IKP_Team_16/Common/HashmapData.cpp"
 #include "/4 GOD/SEMESTAR 1/2_IKP/PROJEKAT/IKP_Tim_16/IKP_Team_16/Common/RingBuffer.cpp"
 
 #pragma comment (lib, "Ws2_32.lib")
@@ -27,16 +29,23 @@ typedef struct Process_m {
 
 
 DWORD WINAPI Prihvat(LPVOID lpParam);
-DWORD WINAPI Prijava(LPVOID lpParam);
+DWORD WINAPI Prijava(LPVOID lpParam); 
+DWORD WINAPI Slanje(LPVOID lpParam);
 
-SOCKET* clientSockets = (SOCKET*)calloc(0, sizeof(SOCKET));
-int lastIndex;
+int SendData(char* data, int dataSize, SOCKET connectSocket);
+
+SOCKET* clientSockets = (SOCKET*)malloc(sizeof(SOCKET));
+int lastIndex = 0;
 
 RingBuffer buffer;
 
+HANDLE Empty;
+HANDLE Full;
+CRITICAL_SECTION BufferAccess;
+
 int main()
 {
-	
+
 	Process* Processes = (Process*)malloc(sizeof(Process));
 	// WSADATA data structure that is to receive details of the Windows Sockets implementation
 	WSADATA wsaData;
@@ -48,16 +57,24 @@ int main()
 		return 1;
 	}
 
-	DWORD PrijavaID, PrihvatID;
-	HANDLE hPrijava, hPrihvat;
+	DWORD PrijavaID, PrihvatID, SlanjeID;
+	HANDLE hPrijava, hPrihvat, hSlanje;
 	
-	hPrijava = CreateThread(NULL, 0, &Prijava, NULL, 0, &PrijavaID);
+	Empty = CreateSemaphore(0, RING_SIZE, RING_SIZE, NULL);
+	Full = CreateSemaphore(0, 0, RING_SIZE, NULL);
+	InitializeCriticalSection(&BufferAccess);
 
+
+	hPrijava = CreateThread(NULL, 0, &Prijava, NULL, 0, &PrijavaID);
+	hSlanje = CreateThread(NULL, 0, &Slanje, NULL, 0, &SlanjeID);
 	hPrihvat = CreateThread(NULL, 0, &Prihvat, NULL, 0, &PrihvatID);
 
 	int liI = getchar();
 	CloseHandle(hPrijava);
-	CloseHandle(hPrijava);
+	CloseHandle(hPrihvat);
+	CloseHandle(hSlanje);
+	CloseHandle(Empty);
+	CloseHandle(Full);
 	
 
 	for (int i = 0; i < lastIndex; i++)
@@ -65,6 +82,11 @@ int main()
 		closesocket(clientSockets[i]);
 	}
 	// Deinitialize WSA library
+
+	DeleteCriticalSection(&BufferAccess);
+
+	free(clientSockets);
+
 	WSACleanup();
 
 	return 0;
@@ -79,7 +101,6 @@ DWORD WINAPI Prijava(LPVOID lpParam)
 {
 	SOCKET listenSocket = INVALID_SOCKET;
 
-	bool imaKlijent = false;
 
 	// Initialize serverAddress structure used by bind
 	sockaddr_in serverAddress;
@@ -98,7 +119,7 @@ DWORD WINAPI Prijava(LPVOID lpParam)
 	// Check if socket is successfully created
 	if (listenSocket == INVALID_SOCKET)
 	{
-		printf("socket failed with error: %ld\n", WSAGetLastError());
+		printf("T-PRIJAVA: socket failed with error: %ld\n", WSAGetLastError());
 		WSACleanup();
 		return 1;
 	}
@@ -109,7 +130,7 @@ DWORD WINAPI Prijava(LPVOID lpParam)
 	// Check if socket is successfully binded to address and port from sockaddr_in structure
 	if (iResult == SOCKET_ERROR)
 	{
-		printf("bind failed with error: %d\n", WSAGetLastError());
+		printf("T-PRIJAVA: bind failed with error: %d\n", WSAGetLastError());
 		closesocket(listenSocket);
 		WSACleanup();
 		return 1;
@@ -121,26 +142,26 @@ DWORD WINAPI Prijava(LPVOID lpParam)
 	int bOptLen = sizeof(bool);
 	iResult = setsockopt(listenSocket, SOL_SOCKET, SO_CONDITIONAL_ACCEPT, (char*)&bOptVal, bOptLen);
 	if (iResult == SOCKET_ERROR) {
-		printf("setsockopt for SO_CONDITIONAL_ACCEPT failed with error: %u\n", WSAGetLastError());
+		printf("T-PRIJAVA: setsockopt for SO_CONDITIONAL_ACCEPT failed with error: %u\n", WSAGetLastError());
 	}
 
 	unsigned long  mode = 1;
 	if (ioctlsocket(listenSocket, FIONBIO, &mode) != 0)
-		printf("ioctlsocket failed with error.");
+		printf("T-PRIJAVA: ioctlsocket failed with error.");
 
 	// Set listenSocket in listening mode
 	iResult = listen(listenSocket, SOMAXCONN);
 	if (iResult == SOCKET_ERROR)
 	{
-		printf("listen failed with error: %d\n", WSAGetLastError());
+		printf("T-PRIJAVA: listen failed with error: %d\n", WSAGetLastError());
 		closesocket(listenSocket);
 		WSACleanup();
 		return 1;
 	}
 
-	printf("Server socket is set to listening mode. Waiting for new connection requests.\n");
+	printf("Main replikator je pokrenut.\n");
 
-	lastIndex = 0;
+	
 
 
 	fd_set readfds;
@@ -165,7 +186,7 @@ DWORD WINAPI Prijava(LPVOID lpParam)
 
 		if (selectResult == SOCKET_ERROR)
 		{
-			printf("Select failed with error: %d\n", WSAGetLastError());
+			printf("T-PRIJAVA: Select failed with error: %d\n", WSAGetLastError());
 			closesocket(listenSocket);
 			WSACleanup();
 			return 1;
@@ -188,11 +209,11 @@ DWORD WINAPI Prijava(LPVOID lpParam)
 			{
 				if (WSAGetLastError() == WSAECONNRESET)
 				{
-					printf("accept failed, because timeout for client request has expired.\n");
+					printf("T-PRIJAVA: accept failed, because timeout for client request has expired.\n");
 				}
 				else
 				{
-					printf("accept failed with error: %d\n", WSAGetLastError());
+					printf("T-PRIJAVA: accept failed with error: %d\n", WSAGetLastError());
 				}
 			}
 			else
@@ -201,12 +222,19 @@ DWORD WINAPI Prijava(LPVOID lpParam)
 
 				if (ioctlsocket(clientSockets[lastIndex], FIONBIO, &mode) != 0)
 				{
-					printf("ioctlsocket failed with error.");
+					printf("T-PRIJAVA: ioctlsocket failed with error.");
 					continue;
 				}
+
+				
+				char dataBuffer[1];
+
+				sprintf(dataBuffer, "%d", lastIndex);
+				SendData(dataBuffer, sizeof(dataBuffer), clientSockets[lastIndex]);
+
+				printf("Prijavljen main proces broj %d\n", lastIndex);
 				lastIndex++;
-				printf("\nNew client request accepted");
-				//printf("New client request accepted (%d). Client address: %s : %d\n", lastIndex, inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
+				
 				
 				
 			}
@@ -234,7 +262,7 @@ DWORD WINAPI Prihvat(LPVOID lpParam)
 
 	char dataBuffer[BUFFER_SIZE];
 
-	if (sizeof(clientSockets) / sizeof(SOCKET) > 0) {
+	
 		while (true) {
 
 			FD_ZERO(&readfds);
@@ -251,7 +279,7 @@ DWORD WINAPI Prihvat(LPVOID lpParam)
 
 			if (selectResult == SOCKET_ERROR)
 			{
-				printf("Select failed with error: %d\n", WSAGetLastError());
+				printf("T-PRIHVAT: Select failed with error: %d\n", WSAGetLastError());
 
 				WSACleanup();
 				return 1;
@@ -269,22 +297,38 @@ DWORD WINAPI Prihvat(LPVOID lpParam)
 					// Check if new message is received from client on position "i"
 					if (FD_ISSET(clientSockets[i], &readfds))
 					{
-						int iResult = recv(clientSockets[i], dataBuffer, BUFFER_SIZE, 0);
+						int iResult = recv(clientSockets[i], dataBuffer, 13, 0);
 
 						if (iResult > 0)
 						{
 							dataBuffer[iResult] = '\0';
-							printf("\nMessage received from client (%d):\n", i + 1);
+							printf("\nPristigla je poruka od klijenta broj (%d).\n", i);
 
+							
 							Data_for_send data = *(Data_for_send*)dataBuffer;
+							
+							data.process_id = i;
+
+							WaitForSingleObject(Empty, INFINITE);
+
+							EnterCriticalSection(&BufferAccess);
 
 							BufferPut(&buffer, &data);
+
+							
+							LeaveCriticalSection(&BufferAccess);
+
+							ReleaseSemaphore(Full, 1, NULL);
+							
+							
+						
+							
 
 						}
 						else if (iResult == 0)
 						{
 							// connection was closed gracefully
-							printf("\nConnection with client (%d) closed.\n", i + 1);
+							printf("\nZatvorena konekcija sa klijentom broj (%d).\n", i);
 							closesocket(clientSockets[i]);
 
 							// sort array and clean last place
@@ -299,7 +343,7 @@ DWORD WINAPI Prihvat(LPVOID lpParam)
 						else
 						{
 							// there was an error during recv
-							printf("\nRecv failed with error: %d\n", WSAGetLastError());
+							printf("\nT-PRIHVAT: Recv failed with error: %d\n", WSAGetLastError());
 							closesocket(clientSockets[i]);
 
 							// sort array and clean last place
@@ -315,7 +359,92 @@ DWORD WINAPI Prihvat(LPVOID lpParam)
 				}
 			}
 		}
-	}
+	
 
 }
 
+
+DWORD WINAPI Slanje(LPVOID lpParam)
+{
+
+	SOCKET connectSocket = socket(AF_INET,
+		SOCK_STREAM,
+		IPPROTO_TCP);
+
+	if (connectSocket == INVALID_SOCKET)
+	{
+		printf("T-SLANJE: socket failed with error: %ld\n", WSAGetLastError());
+		WSACleanup();
+		return 1;
+	}
+
+	sockaddr_in serverAddress;
+	serverAddress.sin_family = AF_INET;								// IPv4 protocol
+	serverAddress.sin_addr.s_addr = inet_addr("127.0.0.1");	// ip address of server
+	serverAddress.sin_port = htons(27017);
+
+	int iResult = connect(connectSocket, (SOCKADDR*)&serverAddress, sizeof(serverAddress));
+	if (iResult == SOCKET_ERROR)
+	{
+		printf("T-SLANJE: Unable to connect to server.\n");
+		closesocket(connectSocket);
+		WSACleanup();
+		return 1;
+	}
+
+	Data_for_send data;
+	Data_for_send* dataPok = NULL;
+
+	while (true) {
+
+
+		WaitForSingleObject(Full, INFINITE);
+
+		EnterCriticalSection(&BufferAccess);
+
+		data = BufferGet(&buffer);
+
+		
+
+		dataPok = &data;
+
+		LeaveCriticalSection(&BufferAccess);
+
+		ReleaseSemaphore(Empty, 1, NULL);
+
+		
+
+
+		int dataSize = sizeof(data);
+
+		SendData((char*)dataPok, dataSize, connectSocket);
+
+		
+
+	}
+}
+
+
+
+
+
+
+int SendData(char* data, int dataSize, SOCKET connectSocket) {
+
+
+	int iResult = send(connectSocket, data, dataSize, 0);
+
+	// Check result of send function
+	if (iResult == SOCKET_ERROR)
+	{
+		printf("send failed with error: %d\n", WSAGetLastError());
+		closesocket(connectSocket);
+		WSACleanup();
+		return 1;
+	}
+
+	printf("Message successfully sent. Total bytes: %ld\n", iResult);
+
+
+	return 0;
+}

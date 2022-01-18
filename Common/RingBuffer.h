@@ -5,10 +5,12 @@
 
 typedef struct Data_for_send_m {
 
-	int key;
-	int value;
+	int process_id;
+	int  key;
+	int  value;
 
 } Data_for_send;
+
 
 typedef struct RingBuffer_m {
 

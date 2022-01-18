@@ -20,11 +20,11 @@
 #define BUFFER_SIZE 256
 
 #include <iostream>
-#include "/4 GOD/SEMESTAR 1/2_IKP/PROJEKAT/IKP_Tim_16/IKP_Team_16/Common/Hashmap.cpp"
+#include "/4 GOD/SEMESTAR 1/2_IKP/PROJEKAT/IKP_Tim_16/IKP_Team_16/Common/HashmapData.cpp"
 #include "/4 GOD/SEMESTAR 1/2_IKP/PROJEKAT/IKP_Tim_16/IKP_Team_16/Common/RingBuffer.cpp"
 
 
-int SendData(void* data, int dataSize, SOCKET connectSocket);
+int SendData(char* data, int dataSize, SOCKET connectSocket);
 void Ispisi_bazu(int* dictionary);
 
 int main()
@@ -75,6 +75,16 @@ int main()
         return 1;
     }
 
+    char dataBuffer[2];
+
+    iResult = recv(connectSocket, dataBuffer, 1, 0);
+
+    dataBuffer[iResult] = '\0';
+    
+
+    printf("Prijavili ste se kao main proces broj %s.", dataBuffer);
+
+
     srand(time(0));
 
     
@@ -111,17 +121,18 @@ int main()
             scanf_s("%d", &vrednost);
             
             HashInsertOrUpdate(kljuc, vrednost, dictionary);
-
              
+            Data_for_send data;
 
-            Data_for_send* data = (Data_for_send*)malloc(sizeof(Data_for_send));
+            data.process_id = htonl(1);
+            data.key = htonl(kljuc);
+            data.value = htonl(vrednost);
 
-            data->key = kljuc;
-            data->value = vrednost;
             
 
-            SendData((void*)data, sizeof(Data_for_send), connectSocket);
+            SendData((char*)&data, sizeof(Data_for_send), connectSocket);
 
+            
             
         }
         else if (unos == 2){
@@ -139,13 +150,20 @@ int main()
                 HashInsertOrUpdate(kljuc, vrednost, dictionary);
 
                 
-                Data_for_send* data = (Data_for_send*)malloc(sizeof(Data_for_send));
+                Data_for_send data;
 
-                data->key = kljuc;
-                data->value = vrednost;
+                unsigned long idL = 1;
+                unsigned long kljucL = (unsigned long)kljuc;
+                unsigned long vrednostL = (unsigned long)vrednost;
+
+                data.process_id = htonl(1);
+                data.key = htonl(kljucL);
+                data.value = htonl(vrednostL);
                 
 
-                SendData((void*)data, sizeof(Data_for_send), connectSocket);
+               
+                
+                SendData((char*)&data, (int)sizeof(data), connectSocket);
                 
                 broj_iteracija--;
 
@@ -174,7 +192,7 @@ int main()
         return 1;
     }
 
-    Sleep(1000);
+    
 
     // Close connected socket
     closesocket(connectSocket);
@@ -185,10 +203,10 @@ int main()
     return 0;
 }
 
-    int SendData(void* data, int dataSize, SOCKET connectSocket) {
+    int SendData(char* data, int dataSize, SOCKET connectSocket) {
         
-
-        int iResult = send(connectSocket, (char*)&data, dataSize, 0);
+        
+        int iResult = send(connectSocket, data, dataSize, 0);
 
         // Check result of send function
         if (iResult == SOCKET_ERROR)
@@ -201,6 +219,7 @@ int main()
 
         printf("Message successfully sent. Total bytes: %ld\n", iResult);
 
+        
 
         return 0;
     }

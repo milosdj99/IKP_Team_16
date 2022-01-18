@@ -21,10 +21,13 @@
     <ClInclude Include="pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Hashmap.h">
+    <ClInclude Include="RingBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RingBuffer.h">
+    <ClInclude Include="HashmapData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HashmapDelta.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -35,10 +38,13 @@
     <ClCompile Include="pch.cpp">
       <Filter>Header Files\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Hashmap.cpp">
+    <ClCompile Include="RingBuffer.cpp">
       <Filter>Header Files\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="RingBuffer.cpp">
+    <ClCompile Include="HashmapData.cpp">
+      <Filter>Header Files\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HashmapDelta.cpp">
       <Filter>Header Files\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
